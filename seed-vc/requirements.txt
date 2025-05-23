@@ -24,3 +24,6 @@ python-dotenv
 boto3
 uvicorn
 fastapi
+google-generativeai
+pytest
+pytest-mock

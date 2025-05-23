@@ -1,230 +1,102 @@
-# Seed-VC  
-[![Hugging Face](https://img.shields.io/badge/🤗%20Hugging%20Face-Demo-blue)](https://huggingface.co/spaces/Plachta/Seed-VC)  [![arXiv](https://img.shields.io/badge/arXiv-2411.09943-<COLOR>.svg)](https://arxiv.org/abs/2411.09943)
+# Seed-VC - Gemini Text-to-Speech (TTS) Service
 
-*English | [简体中文](README-ZH.md) | [日本語](README-JA.md)*  
+This service provides a Text-to-Speech (TTS) API endpoint that leverages Google's Gemini API (specifically, a model like `models/tts-004` or the intended `gemini-2.5-flash-preview-tts`) to generate speech from text.
 
-[real-time-demo.webm](https://github.com/user-attachments/assets/86325c5e-f7f6-4a04-8695-97275a5d046c)
+It is designed to be a backend component for applications requiring TTS capabilities.
 
-Currently released model supports *zero-shot voice conversion* 🔊 , *zero-shot real-time voice conversion* 🗣️ and *zero-shot singing voice conversion* 🎶. Without any training, it is able to clone a voice given a reference speech of 1~30 seconds.  
+## Key Features
+*   **Text-to-Speech Conversion**: Converts input text into spoken audio.
+*   **Gemini Powered**: Utilizes Google's Generative AI models for high-quality speech synthesis.
+*   **Simple API**: Offers a straightforward API endpoint for TTS requests.
+*   **S3 Integration**: Uploads generated audio files to an AWS S3 bucket and returns a presigned URL.
 
-We support further fine-tuning on custom data to increase performance on specific speaker/speakers, with extremely low data requirement **(minimum 1 utterance per speaker)** and extremely fast training speed **(minimum 100 steps, 2 min on T4)**!
+## Installation & Setup
 
-**Real-time voice conversion** is support, with algorithm delay of ~300ms and device side delay of ~100ms, suitable for online meetings, gaming and live streaming.
+1.  **Clone the repository (if part of a larger project, this step might be done already):**
+    ```bash
+    # git clone ...
+    cd seed-vc
+    ```
 
-To find a list of demos and comparisons with previous voice conversion models, please visit our [demo page](https://plachtaa.github.io/seed-vc/)🌐  and [Evaluaiton](EVAL.md)📊.
+2.  **Install dependencies:**
+    Python 3.10 or higher is recommended.
+    ```bash
+    pip install -r requirements.txt
+    ```
+    (Ensure `requirements.txt` includes `google-generativeai`, `fastapi`, `uvicorn`, `boto3`, `python-dotenv`, etc.)
 
-We are keeping on improving the model quality and adding more features.
+3.  **Environment Variables:**
+    Create a `.env` file in the `seed-vc` directory with the following variables:
 
-## Evaluation📊
-See [EVAL.md](EVAL.md) for objective evaluation results and comparisons with other baselines.
-## Installation📥
-Suggested python 3.10 on Windows, Mac M Series (Apple Silicon) or Linux.
-Windows and Linux:
-```bash
-pip install -r requirements.txt
-```
+    ```env
+    # FastAPI Backend API Key (used to secure the /convert endpoint)
+    API_KEY="your_strong_backend_api_key"
 
-Mac M Series:
-```bash
-pip install -r requirements-mac.txt
-```
+    # Gemini API Key (for authenticating with Google's Generative AI services)
+    GEMINI_API_KEY="your_google_gemini_api_key"
 
-## Usage🛠️
-We have released 3 models for different purposes:
+    # AWS S3 Configuration (for storing generated audio)
+    AWS_REGION="your_aws_s3_bucket_region" # e.g., us-east-1
+    AWS_ACCESS_KEY_ID="your_aws_access_key_id"
+    AWS_SECRET_ACCESS_KEY="your_aws_secret_access_key"
+    S3_BUCKET="your_s3_bucket_name"
+    S3_PREFIX="seedvc-outputs" # Optional: prefix for S3 keys
+    ```
 
-| Version | Name                                                                                                                                                                                                                       | Purpose                        | Sampling Rate | Content Encoder | Vocoder | Hidden Dim | N Layers | Params | Remarks                                                |
-|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|---------------|-----------------|---------|------------|----------|--------|--------------------------------------------------------|
-| v1.0    | seed-uvit-tat-xlsr-tiny ([🤗](https://huggingface.co/Plachta/Seed-VC/blob/main/DiT_uvit_tat_xlsr_ema.pth)[📄](configs/presets/config_dit_mel_seed_uvit_xlsr_tiny.yml))                                                     | Voice Conversion (VC)          | 22050         | XLSR-large      | HIFT    | 384        | 9        | 25M    | suitable for real-time voice conversion                |
-| v1.0    | seed-uvit-whisper-small-wavenet ([🤗](https://huggingface.co/Plachta/Seed-VC/blob/main/DiT_seed_v2_uvit_whisper_small_wavenet_bigvgan_pruned.pth)[📄](configs/presets/config_dit_mel_seed_uvit_whisper_small_wavenet.yml)) | Voice Conversion (VC)          | 22050         | Whisper-small   | BigVGAN | 512        | 13       | 98M    | suitable for offline voice conversion                  |
-| v1.0    | seed-uvit-whisper-base ([🤗](https://huggingface.co/Plachta/Seed-VC/blob/main/DiT_seed_v2_uvit_whisper_base_f0_44k_bigvgan_pruned_ft_ema.pth)[📄](configs/presets/config_dit_mel_seed_uvit_whisper_base_f0_44k.yml))       | Singing Voice Conversion (SVC) | 44100         | Whisper-small   | BigVGAN | 768        | 17       | 200M   | strong zero-shot performance, singing voice conversion |
+    *   `API_KEY`: A secret key you define. Client applications (like `elevenlabs-clone-frontend`) must send this key in the `Authorization` header to use the API.
+    *   `GEMINI_API_KEY`: **This is crucial.** You need to obtain this key from Google AI Studio or your Google Cloud project that has the Generative Language API enabled.
+    *   AWS credentials are required for uploading the generated audio to S3.
 
-Checkpoints of the latest model release will be downloaded automatically when first run inference.  
-If you are unable to access huggingface for network reason, try using mirror by adding `HF_ENDPOINT=https://hf-mirror.com` before every command.
+## Usage
 
-Command line inference:
-```bash
-python inference.py --source <source-wav>
---target <referene-wav>
---output <output-dir>
---diffusion-steps 25 # recommended 30~50 for singingvoice conversion
---length-adjust 1.0
---inference-cfg-rate 0.7
---f0-condition False # set to True for singing voice conversion
---auto-f0-adjust False # set to True to auto adjust source pitch to target pitch level, normally not used in singing voice conversion
---semi-tone-shift 0 # pitch shift in semitones for singing voice conversion
---checkpoint <path-to-checkpoint>
---config <path-to-config>
- --fp16 True
-```
-where:
-- `source` is the path to the speech file to convert to reference voice
-- `target` is the path to the speech file as voice reference
-- `output` is the path to the output directory
-- `diffusion-steps` is the number of diffusion steps to use, default is 25, use 30-50 for best quality, use 4-10 for fastest inference
-- `length-adjust` is the length adjustment factor, default is 1.0, set <1.0 for speed-up speech, >1.0 for slow-down speech
-- `inference-cfg-rate` has subtle difference in the output, default is 0.7 
-- `f0-condition` is the flag to condition the pitch of the output to the pitch of the source audio, default is False, set to True for singing voice conversion  
-- `auto-f0-adjust` is the flag to auto adjust source pitch to target pitch level, default is False, normally not used in singing voice conversion
-- `semi-tone-shift` is the pitch shift in semitones for singing voice conversion, default is 0  
-- `checkpoint` is the path to the model checkpoint if you have trained or fine-tuned your own model, leave to blank to auto-download default model from huggingface.(`seed-uvit-whisper-small-wavenet` if `f0-condition` is `False` else `seed-uvit-whisper-base`)
-- `config` is the path to the model config if you have trained or fine-tuned your own model, leave to blank to auto-download default config from huggingface  
-- `fp16` is the flag to use float16 inference, default is True
+1.  **Run the FastAPI application:**
+    ```bash
+    uvicorn api:app --host 0.0.0.0 --port 8000
+    ```
+    (Or your preferred port. Ensure the port matches `SEED_VC_API_ROUTE` in the frontend's `.env` if applicable.)
 
-Voice Conversion Web UI:
-```bash
-python app_vc.py --checkpoint <path-to-checkpoint> --config <path-to-config> --fp16 True
-```
-- `checkpoint` is the path to the model checkpoint if you have trained or fine-tuned your own model, leave to blank to auto-download default model from huggingface. (`seed-uvit-whisper-small-wavenet`)
-- `config` is the path to the model config if you have trained or fine-tuned your own model, leave to blank to auto-download default config from huggingface  
+2.  **API Endpoint:**
+    The service exposes the following endpoint:
+    *   `POST /convert`
+        *   **Purpose**: Converts text to speech.
+        *   **Headers**:
+            *   `Authorization: Bearer <your_API_KEY>` (where `<your_API_KEY>` is the value from your `.env` file).
+        *   **Request Body (JSON)**:
+            ```json
+            {
+              "text": "Hello, this is a test of the Gemini Text-to-Speech service.",
+              "voice": "echo" 
+            }
+            ```
+            Supported voices (from `SUPPORTED_GEMINI_VOICES` in `api.py`): "echo", "alloy", "fable", "onyx", "nova", "shimmer".
+        *   **Response (JSON)**:
+            ```json
+            {
+              "audio_url": "presigned_s3_url_to_audio.wav",
+              "s3_key": "s3_key_of_the_audio.wav"
+            }
+            ```
 
-Then open the browser and go to `http://localhost:7860/` to use the web interface.
+    *   `GET /voices`
+        *   **Purpose**: Lists available voices.
+        *   **Headers**:
+            *   `Authorization: Bearer <your_API_KEY>`
+        *   **Response (JSON)**:
+            ```json
+            {
+              "voices": ["echo", "alloy", "fable", "onyx", "nova", "shimmer"]
+            }
+            ```
+            
+    *   `GET /health`
+        *   **Purpose**: Health check for the service.
+        *   **Headers**:
+            *   `Authorization: Bearer <your_API_KEY>`
 
-Singing Voice Conversion Web UI:
-```bash
-python app_svc.py --checkpoint <path-to-checkpoint> --config <path-to-config> --fp16 True
-```
-- `checkpoint` is the path to the model checkpoint if you have trained or fine-tuned your own model, leave to blank to auto-download default model from huggingface. (`seed-uvit-whisper-base`)
-- `config` is the path to the model config if you have trained or fine-tuned your own model, leave to blank to auto-download default config from huggingface  
+## Important Notes
+*   **Gemini API Key**: The `GEMINI_API_KEY` is essential. Without it, the TTS generation will fail. Ensure it's correctly set in your environment or `.env` file.
+*   **Model Used**: The service is configured to use a Gemini TTS model (e.g., `models/tts-004`). Refer to Google's documentation for the latest model identifiers and capabilities.
+*   **Error Handling**: The API includes basic error handling for missing API keys, invalid voice selections, and issues during TTS generation or S3 upload.
 
-Integrated Web UI:
-```bash
-python app.py
-```
-This will only load pretrained models for zero-shot inference. To use custom checkpoints, please run `app_vc.py` or `app_svc.py` as above.
-
-Real-time voice conversion GUI:
-```bash
-python real-time-gui.py --checkpoint-path <path-to-checkpoint> --config-path <path-to-config>
-```
-- `checkpoint` is the path to the model checkpoint if you have trained or fine-tuned your own model, leave to blank to auto-download default model from huggingface. (`seed-uvit-tat-xlsr-tiny`)
-- `config` is the path to the model config if you have trained or fine-tuned your own model, leave to blank to auto-download default config from huggingface  
-
-> [!IMPORTANT]
-> It is strongly recommended to use a GPU for real-time voice conversion.
-> Some performance testing has been done on a NVIDIA RTX 3060 Laptop GPU, results and recommended parameter settings are listed below:
-
-| Model Configuration             | Diffusion Steps | Inference CFG Rate | Max Prompt Length | Block Time (s) | Crossfade Length (s) | Extra context (left) (s) | Extra context (right) (s) | Latency (ms) | Inference Time per Chunk (ms) |
-|---------------------------------|-----------------|--------------------|-------------------|----------------|----------------------|--------------------------|---------------------------|--------------|-------------------------------| 
-| seed-uvit-xlsr-tiny             | 10              | 0.7                | 3.0               | 0.18s          | 0.04s                | 2.5s                     | 0.02s                     | 430ms        | 150ms                         |
-
-You can adjust the parameters in the GUI according to your own device performance, the voice conversion stream should work well as long as Inference Time is less than Block Time.  
-Note that inference speed may drop if you are running other GPU intensive tasks (e.g. gaming, watching videos)  
-
-Explanations for real-time voice conversion GUI parameters:
-- `Diffusion Steps` is the number of diffusion steps to use, in real-time case usually set to 4~10 for fastest inference;
-- `Inference CFG Rate` has subtle difference in the output, default is 0.7, set to 0.0 gains about 1.5x speed-up;
-- `Max Prompt Length` is the maximum length of the prompt audio, setting to a low value can speed up inference, but may reduce similarity to prompt speech;
-- `Block Time` is the time length of each audio chunk for inference, the higher the value, the higher the latency, note this value must be greater than the inference time per block, set according to your hardware condition;
-- `Crossfade Length` is the time length of crossfade between audio chunks, normally not needed to change;
-- `Extra context (left)` is the time length of extra history context for inference, the higher the value, the higher the inference time, but can increase stability;
-- `Extra context (right)` is the time length of extra future context for inference, the higher the value, the higher the inference time and latency, but can increase stability;
-
-The algorithm delay is appoximately calculated as `Block Time * 2 + Extra context (right)`, device side delay is usually of ~100ms. The overall delay is the sum of the two.
-
-You may wish to use [VB-CABLE](https://vb-audio.com/Cable/) to route audio from GUI output stream to a virtual microphone.  
-
-*(GUI and audio chunking logic are modified from [RVC](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI), thanks for their brilliant implementation!)*
-
-## Training🏋️
-Fine-tuning on custom data allow the model to clone someone's voice more accurately. It will largely improve speaker similarity on particular speakers, but may slightly increase WER.  
-A Colab Tutorial is here for you to follow: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1R1BJTqMsTXZzYAVx3j1BiemFXog9pbQG?usp=sharing)
-1. Prepare your own dataset. It has to satisfy the following:
-    - File structure does not matter
-    - Each audio file should range from 1 to 30 seconds, otherwise will be ignored
-    - All audio files should be in on of the following formats: `.wav` `.flac` `.mp3` `.m4a` `.opus` `.ogg`
-    - Speaker label is not required, but make sure that each speaker has at least 1 utterance
-    - Of course, the more data you have, the better the model will perform
-    - Training data should be as clean as possible, BGM or noise is not desired
-2. Choose a model configuration file from `configs/presets/` for fine-tuning, or create your own to train from scratch.
-    - For fine-tuning, it should be one of the following:
-        - `./configs/presets/config_dit_mel_seed_uvit_xlsr_tiny.yml` for real-time voice conversion
-        - `./configs/presets/config_dit_mel_seed_uvit_whisper_small_wavenet.yml` for offline voice conversion
-        - `./configs/presets/config_dit_mel_seed_uvit_whisper_base_f0_44k.yml` for singing voice conversion
-3. Run the following command to start training:
-```bash
-python train.py 
---config <path-to-config> 
---dataset-dir <path-to-data>
---run-name <run-name>
---batch-size 2
---max-steps 1000
---max-epochs 1000
---save-every 500
---num-workers 0
-```
-where:
-- `config` is the path to the model config, choose one of the above for fine-tuning or create your own for training from scratch
-- `dataset-dir` is the path to the dataset directory, which should be a folder containing all the audio files
-- `run-name` is the name of the run, which will be used to save the model checkpoints and logs
-- `batch-size` is the batch size for training, choose depends on your GPU memory.
-- `max-steps` is the maximum number of steps to train, choose depends on your dataset size and training time
-- `max-epochs` is the maximum number of epochs to train, choose depends on your dataset size and training time
-- `save-every` is the number of steps to save the model checkpoint
-- `num-workers` is the number of workers for data loading, set to 0 for Windows    
-
-4. If training accidentially stops, you can resume training by running the same command again, the training will continue from the last checkpoint. (Make sure `run-name` and `config` arguments are the same so that latest checkpoint can be found)
-
-5. After training, you can use the trained model for inference by specifying the path to the checkpoint and config file.
-    - They should be under `./runs/<run-name>/`, with the checkpoint named `ft_model.pth` and config file with the same name as the training config file.
-    - You still have to specify a reference audio file of the speaker you'd like to use during inference, similar to zero-shot usage.
-
-## TODO📝
-- [x] Release code
-- [x] Release pretrained models: [![Hugging Face](https://img.shields.io/badge/🤗%20Hugging%20Face-SeedVC-blue)](https://huggingface.co/Plachta/Seed-VC)
-- [x] Huggingface space demo: [![Hugging Face](https://img.shields.io/badge/🤗%20Hugging%20Face-Space-blue)](https://huggingface.co/spaces/Plachta/Seed-VC)
-- [x] HTML demo page: [Demo](https://plachtaa.github.io/seed-vc/)
-- [x] Streaming inference
-- [x] Reduce streaming inference latency
-- [x] Demo video for real-time voice conversion
-- [x] Singing voice conversion
-- [x] Noise resiliency for source audio
-- [ ] Potential architecture improvements
-    - [x] U-ViT style skip connections
-    - [x] Changed input to OpenAI Whisper
-    - [x] Time as Token
-- [x] Code for training on custom data
-- [x] Few-shot/One-shot speaker fine-tuning
-- [x] Changed to BigVGAN from NVIDIA for singing voice decoding
-- [x] Whisper version model for singing voice conversion
-- [x] Objective evaluation and comparison with RVC/SoVITS for singing voice conversion
-- [x] Improve audio quality
-- [ ] NSF vocoder for better singing voice conversion
-- [x] Fix real-time voice conversion artifact while not talking (done by adding a VAD model)
-- [x] Colab Notebook for fine-tuning example
-- [ ] Replace whisper with more advanced linguistic content extractor
-- [ ] More to be added
-- [x] Add Apple Silicon support
-
-## Known Issues
-- On Mac - running `real-time-gui.py` might raise an error `ModuleNotFoundError: No module named '_tkinter'`, in this case a new Python version **with Tkinter support** should be installed. Refer to [This Guide on stack overflow](https://stackoverflow.com/questions/76105218/why-does-tkinter-or-turtle-seem-to-be-missing-or-broken-shouldnt-it-be-part) for explanation of the problem and a detailed fix.
-
-
-## CHANGELOGS🗒️
-- 2025-03-03:
-    - Added Mac M Series (Apple Silicon) support
-- 2024-11-26:
-    - Updated v1.0 tiny version pretrained model, optimized for real-time voice conversion
-    - Support one-shot/few-shot single/multi speaker fine-tuning
-    - Support using custom checkpoint for webUI & real-time GUI
-- 2024-11-19:
-    - arXiv paper released
-- 2024-10-28:
-    - Updated fine-tuned 44k singing voice conversion model with better audio quality
-- 2024-10-27:
-    - Added real-time voice conversion GUI
-- 2024-10-25:
-    - Added exhaustive evaluation results and comparisons with RVCv2 for singing voice conversion
-- 2024-10-24:
-    - Updated 44kHz singing voice conversion model, with OpenAI Whisper as speech content input
-- 2024-10-07:
-    - Updated v0.3 pretrained model, changed speech content encoder to OpenAI Whisper
-    - Added objective evaluation results for v0.3 pretrained model
-- 2024-09-22:
-    - Updated singing voice conversion model to use BigVGAN from NVIDIA, providing large improvement to high-pitched singing voices
-    - Support chunking and  streaming output for long audio files in Web UI
-- 2024-09-18:
-    - Updated f0 conditioned model for singing voice conversion
-- 2024-09-14:
-    - Updated v0.2 pretrained model, with smaller size and less diffusion steps to achieve same quality, and additional ability to control prosody preservation
-    - Added command line inference script
-    - Added installation and usage instructions
+This service is no longer a voice conversion tool but a dedicated Text-to-Speech provider using Google Gemini.
+The previous voice conversion models, command-line tools for voice conversion, and training scripts are not applicable to this version of the service.

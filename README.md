@@ -12,9 +12,9 @@ Hi 🤙 In this video, you'll build a full-stack ElevenLabs clone with text-to-s
 Features:
 
 - 🔊 Text-to-speech synthesis with StyleTTS2
-- 🎭 Voice conversion with Seed-VC
+- 🗣️ Text-to-speech synthesis with Seed-VC (using Google Gemini)
 - 🎵 Audio generation from text with Make-An-Audio
-- 🤖 Custom voice fine-tuning capabilities
+- 🤖 Custom voice fine-tuning capabilities (for StyleTTS2 and Make-An-Audio)
 - 🐳 Docker containerization of AI models
 - 🚀 FastAPI backend endpoints
 - 📊 User credit management system
@@ -29,9 +29,9 @@ Features:
 
 ## Models Used in Video
 
-- Voice-to-voice: [seed-vc](https://github.com/Plachtaa/seed-vc)
+- Text-to-speech (Gemini-powered): [seed-vc](https://github.com/Plachtaa/seed-vc) - *Note: This has been modified from the original video to use Google Gemini for TTS instead of voice conversion.*
 - Text-to-speech fine-tuning: [StyleTTS2FineTune](https://github.com/IIEleven11/StyleTTS2FineTune)
-- Text-to-speech: [StyleTTS2](https://github.com/yl4579/StyleTTS2)
+- Text-to-speech (StyleTTS2): [StyleTTS2](https://github.com/yl4579/StyleTTS2)
 - Text-to-SFX: [Make-an-audio](https://github.com/Text-to-Audio/Make-An-Audio)
 
 ## Setup
@@ -71,6 +71,9 @@ Folders with AI models:
 ```bash
 cd seed-vc # For example
 pip install -r requirements.txt
+# Ensure you have set up the required environment variables for each service,
+# including API_KEY for securing the FastAPI endpoints and GEMINI_API_KEY for the seed-vc (Gemini TTS) service.
+# Refer to the .env.example file in the elevenlabs-clone-frontend directory and the README in each service's folder.
 ```
 
 ### IAM users and roles required

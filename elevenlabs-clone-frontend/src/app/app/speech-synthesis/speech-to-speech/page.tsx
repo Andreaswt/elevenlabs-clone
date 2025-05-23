@@ -1,6 +1,6 @@
 import { PageLayout } from "~/components/client/page-layout";
 import { TextToSpeechEditor } from "~/components/client/speech-synthesis/text-to-speech-editor";
-import { VoiceChanger } from "~/components/client/speech-synthesis/voice-changer";
+// import { VoiceChanger } from "~/components/client/speech-synthesis/voice-changer"; // No longer needed
 import { getHistoryItems } from "~/lib/history";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
@@ -27,12 +27,12 @@ export default async function SpeechToSpeechPage() {
 
   return (
     <PageLayout
-      title={"Voice Changer"}
+      title={"Text-to-Speech (SeedVC)"}
       service={service}
       showSidebar={true}
       historyItems={historyItems}
     >
-      <VoiceChanger credits={credits} service={service} />
+      <TextToSpeechEditor credits={credits} service={service} />
     </PageLayout>
   );
 }

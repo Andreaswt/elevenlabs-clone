@@ -53,8 +53,8 @@ export const aiGenerationFunction = inngest.createFunction(
             Authorization: env.BACKEND_API_KEY,
           },
           body: JSON.stringify({
-            source_audio_key: audioClip.originalVoiceS3Key,
-            target_voice: audioClip.voice,
+            text: audioClip.text,
+            voice: audioClip.voice,
           }),
         });
       } else if (audioClip.service === "make-an-audio") {

@@ -40,8 +40,8 @@ export async function generateTextToSpeech(text: string, voice: string) {
   };
 }
 
-export async function generateSpeechToSpeech(
-  originalVoiceS3Key: string,
+export async function generateTextToSpeechFromService(
+  text: string,
   voice: string,
 ) {
   const session = await auth();
@@ -51,7 +51,7 @@ export async function generateSpeechToSpeech(
 
   const audioClipJob = await db.generatedAudioClip.create({
     data: {
-      originalVoiceS3Key: originalVoiceS3Key,
+      text: text,
       voice: voice,
       user: {
         connect: {

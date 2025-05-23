@@ -15,6 +15,7 @@ import { ServiceType } from "~/types/services";
 import { GenerateButton } from "../generate-button";
 import {
   generateTextToSpeech,
+  generateTextToSpeechFromService, // Import the new action
   generationStatus,
 } from "~/actions/generate-speech";
 import { useVoiceStore } from "~/stores/voice-store";
@@ -46,7 +47,7 @@ export function TextToSpeechEditor({
       try {
         const status = await generationStatus(currentAudioId);
 
-        const selectedVoice = getSelectedVoice("styletts2");
+        const selectedVoice = getSelectedVoice(service); // Use service prop
         if (status.success && status.audioUrl && selectedVoice) {
           clearInterval(pollInterval);
           setLoading(false);
@@ -120,16 +121,35 @@ export function TextToSpeechEditor({
   };
 
   const handleGenerateSpeech = async () => {
-    const selectedVoice = getSelectedVoice("styletts2");
+    const selectedVoice = getSelectedVoice(service); // Use service prop
 
     if (textContent.trim().length === 0 || !selectedVoice) return;
 
     try {
       setLoading(true);
-      const { audioId, shouldShowThrottleAlert } = await generateTextToSpeech(
-        textContent,
-        selectedVoice?.id,
-      );
+      let audioId: string;
+      let shouldShowThrottleAlert: boolean;
+
+      if (service === "styletts2") {
+        const result = await generateTextToSpeech(
+          textContent,
+          selectedVoice.id,
+        );
+        audioId = result.audioId;
+        shouldShowThrottleAlert = result.shouldShowThrottleAlert;
+      } else if (service === "seedvc") {
+        const result = await generateTextToSpeechFromService(
+          textContent,
+          selectedVoice.id,
+        );
+        audioId = result.audioId;
+        shouldShowThrottleAlert = result.shouldShowThrottleAlert;
+      } else {
+        // Optional: handle other services or throw an error
+        console.error("Unsupported service type in TextToSpeechEditor:", service);
+        setLoading(false);
+        return;
+      }
 
       if (shouldShowThrottleAlert) {
         toast("Exceeding 3 requests per minute will queue your requests.", {
