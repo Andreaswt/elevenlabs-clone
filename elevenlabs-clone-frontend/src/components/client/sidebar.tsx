@@ -78,30 +78,16 @@ export default function Sidebar({ isMobile = false }: { isMobile?: boolean }) {
       {/* Navigation */}
       <nav className="mt-8 flex flex-1 flex-col">
         <SectionHeader isExpanded={isExpanded}>Playground</SectionHeader>
+        {/* Removed Text to Speech button for old path */}
         <SidebarButton
-          icon={<IoChatboxOutline />}
+          icon={<IoMicOutline />} // Icon can be IoChatboxOutline or IoMicOutline, kept IoMicOutline
           isExpanded={isExpanded}
-          isActive={pathname.includes("/app/speech-synthesis/text-to-speech")}
-          href="/app/speech-synthesis/text-to-speech"
+          isActive={pathname.includes("/app/speech-synthesis/main")} // Updated isActive
+          href="/app/speech-synthesis/main" // Updated href
         >
-          Text to Speech
+          Speech Synthesis 
         </SidebarButton>
-        <SidebarButton
-          icon={<IoMicOutline />}
-          isExpanded={isExpanded}
-          isActive={pathname.includes("/app/speech-synthesis/speech-to-speech")}
-          href="/app/speech-synthesis/speech-to-speech"
-        >
-          Voice Changer
-        </SidebarButton>
-        <SidebarButton
-          icon={<IoMusicalNotesOutline />}
-          isExpanded={isExpanded}
-          isActive={pathname.includes("/app/sound-effects")}
-          href="/app/sound-effects/generate"
-        >
-          Sound Effects
-        </SidebarButton>
+        {/* Removed Sound Effects button */}
       </nav>
 
       {/* Bottom Section */}

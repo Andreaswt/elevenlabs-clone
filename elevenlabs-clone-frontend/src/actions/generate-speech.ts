@@ -2,43 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { inngest } from "~/inngest/client";
-import { getPresignedUrl, getUploadUrl } from "~/lib/s3";
+// import { getPresignedUrl, getUploadUrl } from "~/lib/s3"; // Removed
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
-import { ServiceType } from "~/types/services";
+import { ServiceType } from "~/types/services"; // Keep for now, may be simplified later
+import { env } from "~/env"; // Added for SEED_VC_API_ROUTE
 
-export async function generateTextToSpeech(text: string, voice: string) {
-  const session = await auth();
-  if (!session?.user.id) {
-    throw new Error("User not authenticated");
-  }
-
-  const audioClipJob = await db.generatedAudioClip.create({
-    data: {
-      text: text,
-      voice: voice,
-      user: {
-        connect: {
-          id: session.user.id,
-        },
-      },
-      service: "styletts2",
-    },
-  });
-
-  await inngest.send({
-    name: "generate.request",
-    data: {
-      audioClipId: audioClipJob.id,
-      userId: session.user.id,
-    },
-  });
-
-  return {
-    audioId: audioClipJob.id,
-    shouldShowThrottleAlert: await shouldShowThrottleAlert(session.user.id),
-  };
-}
+// Obsolete function generateTextToSpeech (for styletts2) has been removed.
 
 export async function generateTextToSpeechFromService(
   text: string,
@@ -76,37 +46,7 @@ export async function generateTextToSpeechFromService(
   };
 }
 
-export async function generateSoundEffect(prompt: string) {
-  const session = await auth();
-  if (!session?.user.id) {
-    throw new Error("User not authenticated");
-  }
-
-  const audioClipJob = await db.generatedAudioClip.create({
-    data: {
-      text: prompt,
-      user: {
-        connect: {
-          id: session.user.id,
-        },
-      },
-      service: "make-an-audio",
-    },
-  });
-
-  await inngest.send({
-    name: "generate.request",
-    data: {
-      audioClipId: audioClipJob.id,
-      userId: session.user.id,
-    },
-  });
-
-  return {
-    audioId: audioClipJob.id,
-    shouldShowThrottleAlert: await shouldShowThrottleAlert(session.user.id),
-  };
-}
+// Obsolete function generateSoundEffect (for make-an-audio) has been removed.
 
 const shouldShowThrottleAlert = async (userId: string) => {
   const oneMinuteAgo = new Date();
@@ -145,10 +85,13 @@ export async function generationStatus(
   }
 
   if (audioClip.s3Key) {
-    revalidateBasedOnService(audioClip.service as ServiceType);
+    revalidateBasedOnService(audioClip.service as ServiceType); // Keep this
+    // Ensure no double slashes if s3Key starts with '/' and SEED_VC_API_ROUTE doesn't end with '/'
+    const baseUrl = env.SEED_VC_API_ROUTE.endsWith('/') ? env.SEED_VC_API_ROUTE.slice(0, -1) : env.SEED_VC_API_ROUTE;
+    const audioPath = audioClip.s3Key.startsWith('/') ? audioClip.s3Key : '/' + audioClip.s3Key;
     return {
       success: true,
-      audioUrl: await getPresignedUrl({ key: audioClip.s3Key }),
+      audioUrl: baseUrl + audioPath,
     };
   }
 
@@ -159,24 +102,12 @@ export async function generationStatus(
 }
 
 const revalidateBasedOnService = async (service: ServiceType) => {
-  switch (service) {
-    case "styletts2":
-      revalidatePath("/app/speech-synthesis/text-to-speech");
-      break;
-    case "seedvc":
-      revalidatePath("/app/speech-synthesis/speech-to-speech");
-      break;
-    case "make-an-audio":
-      revalidatePath("/app/sound-effects/history");
-      break;
+  // Only "seedvc" is expected now.
+  // The path might be updated in a subsequent step when UI routes are changed.
+  if (service === "seedvc") {
+    revalidatePath("/app/speech-synthesis/main"); 
   }
+  // Removed cases for "styletts2" and "make-an-audio"
 };
 
-export async function generateUploadUrl(fileType: string) {
-  const session = await auth();
-  if (!session?.user.id) {
-    throw new Error("User not authenticated");
-  }
-
-  return await getUploadUrl(fileType);
-}
+// Obsolete function generateUploadUrl has been removed.

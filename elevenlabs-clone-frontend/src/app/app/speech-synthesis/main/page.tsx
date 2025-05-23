@@ -5,7 +5,7 @@ import { getHistoryItems } from "~/lib/history";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 
-export default async function SpeechToSpeechPage() {
+export default async function MainPage() { // Renamed function for clarity, though not strictly required by task
   const session = await auth();
   const userId = session?.user.id;
 
@@ -21,13 +21,13 @@ export default async function SpeechToSpeechPage() {
     credits = user?.credits ?? 0;
   }
 
-  const service = "seedvc";
+  const service = "seedvc"; // This remains "seedvc" as it's the service being used
 
   const historyItems = await getHistoryItems(service);
 
   return (
     <PageLayout
-      title={"Text-to-Speech (SeedVC)"}
+      title={"Speech Synthesis"} // Updated title as per instructions
       service={service}
       showSidebar={true}
       historyItems={historyItems}

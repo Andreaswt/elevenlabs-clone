@@ -31,68 +31,59 @@ export const aiGenerationFunction = inngest.createFunction(
     });
 
     const result = await step.run("call-api", async () => {
-      let response: Response | null = null;
-
-      if (audioClip.service === "styletts2") {
-        response = await fetch(env.STYLETTS2_API_ROUTE + "/generate", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: env.BACKEND_API_KEY,
-          },
-          body: JSON.stringify({
-            text: audioClip.text,
-            target_voice: audioClip.voice,
-          }),
+      // Only SeedVC service is supported now.
+      // Consider adding a check here if audioClip.service is not 'seedvc' and throw an error,
+      // though subsequent steps will remove other services from being selected.
+      if (audioClip.service !== "seedvc") {
+        // This case should ideally not be reached if frontend only allows 'seedvc'
+        await db.generatedAudioClip.update({
+          where: { id: audioClip.id },
+          data: { failed: true, failureReason: "Invalid service selected" },
         });
-      } else if (audioClip.service === "seedvc") {
-        response = await fetch(env.SEED_VC_API_ROUTE + "/convert", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: env.BACKEND_API_KEY,
-          },
-          body: JSON.stringify({
-            text: audioClip.text,
-            voice: audioClip.voice,
-          }),
-        });
-      } else if (audioClip.service === "make-an-audio") {
-        response = await fetch(env.MAKE_AN_AUDIO_API_ROUTE + "/generate", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: env.BACKEND_API_KEY,
-          },
-          body: JSON.stringify({
-            prompt: audioClip.text,
-          }),
-        });
+        throw new Error(
+          `Unsupported service: ${audioClip.service}. Only 'seedvc' is allowed.`,
+        );
       }
 
-      if (!response) {
-        throw new Error("API error: no response");
-      }
+      const response = await fetch(env.SEED_VC_API_ROUTE + "/convert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: env.BACKEND_API_KEY,
+        },
+        body: JSON.stringify({
+          text: audioClip.text,
+          voice: audioClip.voice,
+          user_id: audioClip.userId, // Added user_id
+        }),
+      });
 
       if (!response.ok) {
+        const errorBody = await response.text();
         await db.generatedAudioClip.update({
           where: { id: audioClip.id },
           data: {
             failed: true,
+            failureReason: `API error: ${response.status} ${response.statusText} - ${errorBody}`,
           },
         });
-
-        throw new Error("API error: " + response.statusText);
+        throw new Error(
+          `API error: ${response.status} ${response.statusText} - ${errorBody}`,
+        );
       }
-
-      return response.json() as Promise<{ audio_url: string; s3_key: string }>;
+      // Updated response type
+      return response.json() as Promise<{
+        audio_url: string;
+        local_path: string;
+      }>;
     });
 
     const history = await step.run("save-to-history", async () => {
       return await db.generatedAudioClip.update({
         where: { id: audioClip.id },
         data: {
-          s3Key: result.s3_key,
+          s3Key: result.audio_url, // Changed from result.s3_key to result.audio_url
+          // Optional: could also store result.local_path if needed for debugging or other backend processes
         },
       });
     });
